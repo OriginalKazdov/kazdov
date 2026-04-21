@@ -35,6 +35,20 @@ results/
 runs/
 wandb/
 
+# LaTeX build artefacts (the PDF outputs themselves are kept and rebuilt
+# by .github/workflows/build-papers.yml)
+papers/*.aux
+papers/*.bbl
+papers/*.blg
+papers/*.fdb_latexmk
+papers/*.fls
+papers/*.log
+papers/*.out
+papers/*.synctex.gz
+papers/*.toc
+papers/*.lof
+papers/*.lot
+
 # OS / editor
 .DS_Store
 .idea/
