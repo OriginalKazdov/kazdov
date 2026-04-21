@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kazdov"
+version = "0.1.0"
+description = "MoBE-BCN: Mixture of Bilinear Experts — reference implementation and math-specialized LM"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    { name = "Juan Cruz Dovzak", email = "juandovzak@gmail.com" },
+]
+keywords = [
+    "mixture-of-experts",
+    "bilinear-attention",
+    "algebraic-reasoning",
+    "grokking",
+    "language-model",
+    "math",
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Development Status :: 3 - Alpha",
+]
+dependencies = [
+    "torch>=2.3",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+training = [
+    "transformers>=4.40",
+    "datasets>=2.20",
+    "zstandard",
+]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.urls]
+Homepage       = "https://github.com/OriginalKazdov/kazdov"
+Paper-1        = "https://github.com/OriginalKazdov/kazdov/blob/main/papers/01-mobe-bcn.md"
+Paper-2        = "https://github.com/OriginalKazdov/kazdov/blob/main/papers/02-kazdov-lm.md"
+Repository     = "https://github.com/OriginalKazdov/kazdov"
+Issues         = "https://github.com/OriginalKazdov/kazdov/issues"
+
+[tool.setuptools.packages.find]
+include = ["kazdov*"]
+exclude = ["experiments*", "docs*", "papers*", "configs*", "examples*"]

@@ -1,0 +1,58 @@
+# Kazdov-α training configuration — 98M parameters, 5B tokens, ~24h on RTX 4090
+#
+# This file documents the canonical configuration referenced in
+# papers/02-kazdov-lm.md. Values here mirror the defaults in
+# experiments/paper2_lm/train_alpha.py — edit either to adjust.
+
+model:
+  vocab_size: 50257         # GPT-2 BPE
+  d_model: 512
+  n_layers: 12
+  n_heads: 8                # for the parallel MHA branch
+  rank: 128                 # low-rank bilinear dimension
+  mlp_dim: 2048             # FFN expansion
+  max_len: 256
+  n_experts: 4              # K experts in MoBE
+  use_mobe: true
+  use_bi_bcn: false         # inverse-aware branch (optional)
+  use_hybrid_mha: true      # parallel standard MHA alongside MoBE-BCN
+
+data:
+  # Weighted mix, normalized internally
+  open_web_math:   0.45
+  proof_pile_v1:   0.22
+  mathpile:        0.15
+  automath:        0.10
+  numina_math:     0.08
+  heldout_frac: 0.005       # last 0.5% of each bin is held out
+
+optim:
+  lr: 5.0e-4
+  betas: [0.9, 0.95]
+  weight_decay: 0.1
+  grad_clip: 1.0
+
+schedule:
+  type: wsd                 # warmup-stable-decay
+  warmup_steps: 500
+  decay_frac: 0.2           # last 20% of training
+  final_lr_frac: 0.1        # decay to 10% of peak
+
+training:
+  total_tokens: 5_000_000_000
+  batch_size: 32
+  seq_len: 256              # tokens per sequence; must match model.max_len
+  autocast_dtype: bfloat16
+  grad_checkpointing: false # not needed once cumsum MoBE drops memory
+  mobe_bias_update_every: 100   # DeepSeek-V3-style balanced routing
+  log_every: 50
+  eval_every: 5000
+  save_every: 2000
+
+checkpoint_milestones:
+  # Named (persistent) checkpoints at these token counts
+  - 100_000_000
+  - 500_000_000
+  - 1_000_000_000
+  - 2_000_000_000
+  - 5_000_000_000

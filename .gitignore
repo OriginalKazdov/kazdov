@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Model weights & checkpoints (distribute via HuggingFace Hub, not git)
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+*.h5
+weights/
+checkpoints/
+
+# Data (too large for git; use prep scripts in experiments/paper2_lm/)
+data/
+*.arrow
+
+# Logs and metrics
+*.log
+logs/
+results/
+runs/
+wandb/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Secrets — NEVER commit
+.env
+*.key
+*.pem
+config.secret*

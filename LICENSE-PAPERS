@@ -1,0 +1,30 @@
+Papers in this directory are licensed under the Creative Commons
+Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
+
+This license applies to:
+  - papers/01-mobe-bcn.md
+  - papers/01-mobe-bcn.tex (if present)
+  - papers/02-kazdov-lm.md
+  - papers/02-kazdov-lm.tex (if present)
+  - Any compiled PDFs in papers/
+
+You are free to:
+  - Share — copy and redistribute in any medium or format
+  - Adapt — remix, transform, and build upon the material
+
+Under the following terms:
+  - Attribution — You must give appropriate credit, provide a link to the
+    license, and indicate if changes were made. Cite as shown in each paper.
+  - NonCommercial — You may not use the material for commercial purposes
+    without explicit written permission from the author.
+
+Full license text: https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+---
+
+Patent notice: The MoBE-BCN architecture, cumsum-factorized bilinear attention,
+and associated methods may be subject to patent protection. The author retains
+all patent rights. The CC BY-NC license above applies only to the textual
+content of the papers, not to any patented methods they describe.
+
+For commercial licensing inquiries, contact: juandovzak@gmail.com
