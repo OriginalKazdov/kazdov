@@ -28,10 +28,12 @@ checkpoints/
 data/
 *.arrow
 
-# Logs and metrics
+# Logs and metrics — local training outputs (not the curated analysis
+# in the top-level results/ directory, which *is* checked in).
 *.log
 logs/
-results/
+results/kazdov_alpha/
+results/ablations/
 runs/
 wandb/
 
