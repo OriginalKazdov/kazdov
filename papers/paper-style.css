@@ -1,0 +1,168 @@
+/* Academic-paper style for md-to-pdf.
+   Serif body, clean tables, tight math code, 1-inch margins. */
+
+@page {
+    size: letter;
+    margin: 1in;
+}
+
+body {
+    font-family: "Times New Roman", "Liberation Serif", "Nimbus Roman", Georgia, serif;
+    font-size: 11pt;
+    line-height: 1.45;
+    color: #111;
+    max-width: 6.5in;
+    margin: 0 auto;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: "Times New Roman", "Liberation Serif", Georgia, serif;
+    line-height: 1.25;
+    page-break-after: avoid;
+    break-after: avoid;
+}
+
+h1 {
+    font-size: 18pt;
+    text-align: center;
+    margin: 0 0 0.3em 0;
+    font-weight: bold;
+}
+
+h2 {
+    font-size: 13pt;
+    margin-top: 1.4em;
+    margin-bottom: 0.4em;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.15em;
+}
+
+h3 {
+    font-size: 11.5pt;
+    margin-top: 1.1em;
+    margin-bottom: 0.3em;
+    font-style: italic;
+}
+
+h4 {
+    font-size: 11pt;
+    margin-top: 0.9em;
+    margin-bottom: 0.2em;
+    font-weight: bold;
+}
+
+p {
+    margin: 0 0 0.55em 0;
+}
+
+/* Author block — lines right after title until first ---
+   These lines render as strong/em in normal paragraph flow */
+h1 + p {
+    text-align: center;
+    margin-bottom: 0.3em;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #aaa;
+    margin: 1.3em 0;
+}
+
+/* Abstract-ish heading renders smaller */
+h2:first-of-type {
+    text-align: center;
+    border-bottom: none;
+    font-size: 12pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0;
+}
+
+/* Code + math */
+code, pre {
+    font-family: "Menlo", "Consolas", "Courier New", monospace;
+    font-size: 9.5pt;
+    background: #f7f7f7;
+    border-radius: 2px;
+}
+
+code {
+    padding: 0.05em 0.25em;
+    border: 1px solid #e3e3e3;
+}
+
+pre {
+    padding: 0.6em 0.8em;
+    overflow-x: auto;
+    border: 1px solid #ddd;
+    line-height: 1.3;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+}
+
+/* Links */
+a { color: #1a4b8e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Lists */
+ul, ol {
+    margin: 0.3em 0 0.7em 1.5em;
+    padding: 0;
+}
+
+li { margin-bottom: 0.2em; }
+
+/* Tables */
+table {
+    border-collapse: collapse;
+    margin: 0.8em auto;
+    font-size: 10pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+th, td {
+    padding: 0.3em 0.7em;
+    border-top: 1px solid #444;
+    border-bottom: 1px solid #444;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    border-bottom-width: 1.5px;
+    font-weight: bold;
+}
+
+tr:last-child td {
+    border-bottom: 1.5px solid #444;
+}
+
+/* Blockquote for asides */
+blockquote {
+    margin: 0.6em 0 0.6em 1em;
+    padding: 0.2em 0.8em;
+    border-left: 3px solid #999;
+    color: #444;
+    font-style: italic;
+}
+
+/* Emphasis */
+strong { font-weight: bold; }
+em { font-style: italic; }
+
+/* Footnotes / small print */
+small { font-size: 9.5pt; color: #444; }
+
+/* Minor horizontal rule */
+hr + h2 { margin-top: 0; }
