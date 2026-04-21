@@ -1,0 +1,447 @@
+\documentclass[11pt]{article}
+
+% Portable, dependency-free preamble — compiles with tectonic / pdflatex /
+% latexmk / any LaTeX install, or directly on Overleaf. Matches the
+% style of 01-mobe-bcn.tex.
+
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{natbib}
+\usepackage{authblk}
+\usepackage{titlesec}
+\usepackage{abstract}
+\usepackage{setspace}
+\usepackage{listings}
+\usepackage{fancyvrb}
+
+% Typography
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=blue!60!black,
+  urlcolor=blue!50!black,
+  pdftitle={Kazdov-LM: Scaling MoBE-BCN to Math Language Modeling via Cumsum Factorization},
+  pdfauthor={Juan Cruz Dovzak},
+}
+
+\renewcommand{\abstractnamefont}{\normalfont\bfseries}
+\renewcommand{\abstracttextfont}{\normalfont\small}
+
+\titlespacing*{\section}{0pt}{1.4em}{0.6em}
+\titlespacing*{\subsection}{0pt}{1.0em}{0.4em}
+
+% Compact code listings (Python)
+\lstdefinestyle{pycode}{
+  basicstyle=\ttfamily\footnotesize,
+  frame=single,
+  framesep=4pt,
+  framerule=0.3pt,
+  rulecolor=\color{gray!40},
+  backgroundcolor=\color{gray!5},
+  breaklines=true,
+  keepspaces=true,
+  columns=fullflexible,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+  language=Python,
+  commentstyle=\color{gray!70},
+  keywordstyle=\color{blue!60!black},
+  stringstyle=\color{red!50!black},
+}
+\lstset{style=pycode}
+
+\colorlet{wipcolor}{orange!80!black}
+\newcommand{\wip}[1]{{\color{wipcolor}\textbf{#1}}}
+\newcommand{\TBD}{\wip{[TBD]}}
+
+% -------------- Title --------------
+\title{\textbf{Kazdov-LM: Scaling MoBE-BCN to Math Language Modeling\\
+via Cumsum Factorization}}
+
+\author{Juan Cruz Dovzak\thanks{Independent researcher, Buenos Aires, Argentina.
+\texttt{juandovzak@gmail.com}. Code and data:
+\url{https://github.com/OriginalKazdov/kazdov}}}
+
+\date{April 2026 --- \wip{Work in Progress}}
+
+\begin{document}
+
+\maketitle
+
+% -------------- WIP banner --------------
+\begin{center}
+\fbox{\parbox{0.93\textwidth}{\small\centering
+\textbf{\color{wipcolor}Work-in-progress manuscript.} The companion paper
+\citep{dovzak2026mobebcn} contains the complete MoBE-BCN architecture and
+sample-efficiency results on algebraic composition tasks. Sections 1--3
+of this manuscript (architecture, cumsum derivation, vectorized kernel)
+are complete; Sections 4--7 (training results, ablations, qualitative
+samples) will be finalised once the 5B-token alpha run completes.
+Last updated: April 2026.
+}}
+\end{center}
+
+% -------------- Abstract --------------
+\begin{abstract}
+\noindent
+MoBE-BCN \citep{dovzak2026mobebcn} achieves state-of-the-art sample
+efficiency on algebraic composition tasks but a naive implementation
+materialises an $O(B \cdot L^2 \cdot D \cdot K)$ pairwise-composition tensor
+inside attention, infeasible at language-model scale. We derive a
+\textbf{cumsum-factorized attention kernel} that reduces MoBE-BCN attention
+to $O(B \cdot L \cdot r \cdot K)$ when the router depends only on the
+query side---aligning with standard token-level MoE routing and preserving
+expert specialisation. Combined with a vectorized $K$-expert kernel, this
+yields a $\mathbf{259\times}$ throughput improvement on a single
+RTX~4090, enabling overnight training of a 98M-parameter math-specialised
+LM (Kazdov-$\alpha$) on a 5.95B-token mathematics corpus.
+On held-out math loss, Kazdov-$\alpha$ \TBD{} a matched-tokenizer
+GPT-2~124M baseline. We release the model, code, and training recipe
+under MIT.
+\end{abstract}
+
+% -------------- Introduction --------------
+\section{Introduction}
+
+Transformer attention is $O(L^2)$ in sequence length. Linear-attention
+variants \citep{katharopoulos2020transformers,choromanski2020rethinking}
+factor the softmax kernel into feature maps on $Q$ and $K$ that combine
+via cumulative sums, yielding $O(L)$. MoBE-BCN's bilinear composition
+$U((V^\top x) \odot (W^\top y))$ has precisely this structure---a tensor
+product that factorises additively across the key axis---but the
+naive implementation materialises the full pairwise tensor before
+reducing. This paper shows the factorisation explicitly, derives the
+$O(L)$ attention kernel, and demonstrates it enables math-specialised
+language-model training on consumer hardware.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+\item \textbf{Cumsum-factorised MoBE-BCN attention} (Section~\ref{sec:cumsum}):
+    a derivation and reference implementation that reduces memory from
+    $O(B \cdot L^2 \cdot D \cdot K)$ to $O(B \cdot L \cdot r \cdot K)$ using
+    query-side routing. Drop-in replacement for the naive causal kernel.
+\item \textbf{Vectorized $K$-expert kernel} (Section~\ref{sec:vectorize}):
+    stacked expert parameters with batched einsum; eliminates the
+    Python per-expert loop.
+\item \textbf{Kazdov-$\alpha$ training recipe} (Section~\ref{sec:setup}):
+    98M-parameter math LM trained on 5.95B math tokens
+    (OpenWebMath, proof-pile, MathPile, AutoMathText, NuminaMath) in
+    $\sim$24h on a single RTX~4090.
+\item \textbf{Held-out math-loss benchmark} (Section~\ref{sec:results},
+    \wip{pending}): comparison against matched-tokenizer GPT-2 124M on
+    five held-out math-corpus slices.
+\item \textbf{Ablation study} (Section~\ref{sec:ablations},
+    \wip{pending}): $K \in \{2, 4, 8\}$, $r \in \{64, 128, 256\}$,
+    router type (Q-only vs Q+K), hybrid-MHA on/off.
+\end{enumerate}
+
+% -------------- Background --------------
+\section{Background}
+
+See the companion paper \citep{dovzak2026mobebcn} for the full MoBE-BCN
+architecture. The core primitive is
+\begin{align}
+\text{BCN}_k(x, y) &= U_k \cdot \bigl((V_k^\top x) \odot (W_k^\top y)\bigr) + b_k,\\
+\text{MoBE}(x, y) &= \sum_{k=1}^{K} w_k(x, y) \cdot \text{BCN}_k(x, y),
+\end{align}
+with $w_k(x, y) = \mathrm{softmax}(\text{Router}([x ; y]))_k$. In attention
+this is applied as
+\[
+\text{out}_i \;=\; \frac{1}{n_{\mathrm{valid}}(i)} \sum_{j \leq i} \text{MoBE}(Q_i, K_j).
+\]
+
+\subsection{Memory and compute complexity (naive)}
+
+The naive implementation expands $Q$ and $K$ to $(B, L, L, D)$ via
+\texttt{unsqueeze}-and-\texttt{expand} before calling the composition:
+
+\begin{lstlisting}
+Qi = Q.unsqueeze(2).expand(B, L, L, D)    # O(B L^2 D)
+Kj = K.unsqueeze(1).expand(B, L, L, D)    # O(B L^2 D)
+fwd = MoBE(Qi, Kj)                        # O(B L^2 D K)
+\end{lstlisting}
+
+For a target 98M-parameter model ($D = 512$, $K = 4$, 12 layers) at $L = 256$,
+each layer must hold $\sim\!4$~GB of intermediate activations. Combined
+with gradient storage and the $O(L^2)$ softmax-based parallel MHA channel,
+this exceeds 24~GB VRAM and is infeasible to train without gradient
+checkpointing penalties that halve throughput.
+
+% -------------- Cumsum factorisation --------------
+\section{Cumsum-Factorised Attention}
+\label{sec:cumsum}
+
+\subsection{Key insight---bilinearity implies separability}
+
+The $j$ index is the one we sum over in causal attention. Because
+compose is \emph{bilinear} in $Q$ and $K$, the sum over $j$ factors
+through the Hadamard product:
+\begin{align}
+\sum_{j \leq i} \text{BCN}(Q_i, K_j)
+&= \sum_{j} U \cdot \bigl((V^\top Q_i) \odot (W^\top K_j)\bigr) \nonumber\\
+&= U \cdot \bigl((V^\top Q_i) \odot \textstyle\sum_{j \leq i} (W^\top K_j)\bigr) \nonumber\\
+&= U \cdot \bigl((V^\top Q_i) \odot \mathrm{cumsum}_j(W^\top K_j)_i\bigr).
+\label{eq:factorization}
+\end{align}
+The $(V^\top Q_i)$ is constant in $j$ and factors out of the sum. The
+$j$-cumulative sum of $W^\top K_j$ is a $(B, L, r)$ prefix-sum along the
+sequence axis---a single pass, no pairwise materialisation. The
+complexity drops from $O(B \cdot L^2 \cdot D \cdot K)$ to
+$O(B \cdot L \cdot r \cdot K)$.
+
+\subsection{Factorisability requires query-side routing}
+
+Extending to MoBE, $\sum_j w_k(Q_i, K_j) \cdot \text{BCN}_k(Q_i, K_j)$.
+If the routing weight $w_k(Q_i, K_j)$ depends on both $Q_i$ and $K_j$, it
+does \emph{not} factor out of the sum over $j$, and the $O(L^2)$
+materialisation returns. If the routing depends only on $Q_i$, it
+factors:
+\begin{align}
+\sum_j w_k(Q_i) \cdot \text{BCN}_k(Q_i, K_j)
+&= w_k(Q_i) \sum_j \text{BCN}_k(Q_i, K_j) \nonumber\\
+&= w_k(Q_i) \cdot U_k \bigl((V_k^\top Q_i) \odot \mathrm{cumsum}_j(W_k^\top K_j)_i\bigr).
+\end{align}
+We therefore adopt \textbf{query-side routing}:
+$w_k(Q_i) = \mathrm{softmax}(\text{Router}(Q_i))_k$. This aligns with
+standard token-level MoE routing in modern
+LLMs~\citep{shazeer2017outrageously,fedus2022switch,jiang2024mixtral}---the
+router chooses experts per query token, not per $(Q, K)$ pair. Expert
+specialisation survives in the per-token form; the algebraic results of
+\citet{dovzak2026mobebcn} are compatible with this restriction (an
+ablation on Power 2022 is reported in
+Section~\ref{sec:ablations}).
+
+\subsection{Vectorized $K$-expert kernel}
+\label{sec:vectorize}
+
+The naive MoBE implementation has a Python loop over experts:
+\texttt{outs = torch.stack([e\_k(x, y) for e\_k in self.experts])}. This
+serialises $K$ kernel launches and prevents GPU pipelining. We replace
+it with stacked parameters and batched einsum:
+
+\begin{lstlisting}
+V_all = torch.stack([V_k for V_k in experts_V], dim=0)  # (K, D, r)
+xV = torch.einsum('bld,kdr->blkr', x, V_all)            # (B, L, K, r)
+yW = torch.einsum('bld,kdr->blkr', y, W_all)            # (B, L, K, r)
+prod_kr  = (xV * yW).reshape(B, L, K * r)               # (B, L, K*r)
+U_merged = U_all.permute(0, 2, 1).reshape(K * r, D)     # (K*r, D)
+out      = prod_kr @ U_merged                           # (B, L, D)
+\end{lstlisting}
+
+A single batched matmul replaces $K$ sequential kernel launches.
+Functionally identical (verified numerically, $\max |\Delta| < 10^{-7}$
+vs naive CPU reference); throughput improves by $\sim\!3\times$ in
+isolation.
+
+\subsection{Combined: full kernel}
+
+Putting the factorisation and vectorisation together, the causal
+MoBE-BCN forward becomes:
+
+\begin{lstlisting}
+def forward(self, x):
+    Q = self.W_Q(x); K = self.W_K(x)
+    # Project per-expert  (B, L, K, r)
+    xV = einsum('bld,kdr->blkr', Q, V_all)
+    yW = einsum('bld,kdr->blkr', K, W_all)
+    # Causal cumsum over j
+    cum_yW = yW.cumsum(dim=1)                    # (B, L, K, r)
+    prod   = xV * cum_yW                         # (B, L, K, r)
+    # Q-side router
+    w = softmax(self.router(Q), dim=-1)          # (B, L, K)
+    prod_w = prod * w.unsqueeze(-1)              # (B, L, K, r)
+    # Project to D via stacked U
+    out = einsum('blkr,kdr->bld', prod_w, U_all) # (B, L, D)
+    # Normalize by |valid j <= i|
+    n = arange(1, L + 1, device=x.device).view(1, L, 1)
+    return self.W_O(out / n)
+\end{lstlisting}
+
+Correctness verified against a naive pairwise+routing reference
+implementation (max absolute error $< 10^{-7}$ on CPU; $< 10^{-5}$ under
+bf16).
+
+\subsection{Benchmark}
+\label{sec:benchmark}
+
+On a single RTX~4090 at model config $d = 512$, $L = 256$,
+$n_{\mathrm{layers}} = 12$, $K = 4$, $r = 128$ (98M parameters total,
+bf16 autocast, no gradient checkpointing):
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Implementation} & \textbf{tok/s} & \textbf{VRAM peak} & \textbf{24h budget} \\
+\midrule
+Naive Python loop + pairwise expand & 288    & 15~GB & 25M \\
+$+$ vectorized $K$ experts          & 853    &  8~GB & 74M \\
+$+$ cumsum factorisation            & 6{,}006 & 1.3~GB & 519M \\
+$+$ batch size 64 (memory freed)    & \textbf{74{,}654} & 19~GB & \textbf{6.5B} \\
+\bottomrule
+\end{tabular}
+\caption{End-to-end throughput on a single RTX~4090. $\mathbf{259\times}$
+total speedup. The $O(L)$ memory frees the batch-size budget, which
+unlocks the final order-of-magnitude gain.}
+\label{tab:benchmark}
+\end{table}
+
+% -------------- Training setup --------------
+\section{Kazdov-$\alpha$ Training Setup}
+\label{sec:setup}
+
+\wip{Partial --- final numbers pending the complete training run.}
+
+\paragraph{Model.}
+KazdovLM 98M parameters --- $d = 512$, $L = 256$, $n_{\mathrm{layers}} = 12$,
+$n_{\mathrm{heads}} = 8$, $r = 128$, $K = 4$, $\text{mlp\_dim} = 2048$,
+$\text{max\_len} = 256$. Hybrid block: cumsum-factorised MoBE-BCN +
+standard causal MHA in parallel.
+
+\paragraph{Tokenizer.} GPT-2 BPE (50{,}257 vocab).
+
+\paragraph{Data} (5.95B tokens):
+\begin{itemize}
+\item OpenWebMath 45\% (2.45B tokens)
+\item proof-pile v1 22\% (1.40B)
+\item MathPile-Commercial 15\% (1.05B)
+\item AutoMathText top-quality slice 10\% (0.70B)
+\item NuminaMath-CoT 8\% (0.35B)
+\end{itemize}
+
+\paragraph{Optimisation.}
+AdamW $\text{lr} = 5 \times 10^{-4}$, $\beta = (0.9, 0.95)$,
+$\text{wd} = 0.1$, grad clip $1.0$, WSD scheduler (warmup 500 steps,
+stable, linear decay in last 20\%).
+
+\paragraph{Hardware.}
+Single RTX~4090, bf16 autocast, batch 32, length 256
+$\rightarrow \sim\!60$--$70$K tok/s sustained.
+
+\paragraph{Target.}
+5B tokens $=$ $\sim\!610$K steps $\approx\!23$h wall time.
+
+\paragraph{Held-out.}
+Last 0.5\% of each data shard, deterministic eval.
+
+% -------------- Results --------------
+\section{Results}
+\label{sec:results}
+
+\wip{This section will be populated once training completes.}
+
+\subsection{Held-out math LM loss}
+
+\begin{table}[h]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrcrrrrrr}
+\toprule
+\textbf{Model} & \textbf{Params} & \textbf{Tokenizer} & \textbf{OWM} & \textbf{proof} & \textbf{MathPile} & \textbf{AutoMath} & \textbf{Numina} & \textbf{MEAN} \\
+\midrule
+GPT-2 124M (baseline) & 124M & GPT-2 & 3.57 & 3.12 & 3.04 & 3.28 & 2.58 & \textbf{3.12} \\
+Kazdov-$\alpha$       & 98M  & GPT-2 & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+\bottomrule
+\end{tabular}
+\caption{\wip{Pending.} Held-out LM loss on 81{,}920 tokens per dataset
+split (deterministic offsets). Lower is better. OWM: OpenWebMath;
+proof: proof-pile v1.}
+\label{tab:heldout}
+\end{table}
+
+\subsection{Loss curves}
+
+\wip{Figure pending}---training-loss and held-out-loss curves vs.\
+tokens seen.
+
+\subsection{Routing diagnostics}
+
+\wip{Figure pending}---per-layer expert usage entropy over training,
+expert-specialisation heatmap.
+
+% -------------- Ablations --------------
+\section{Ablations}
+\label{sec:ablations}
+
+\wip{Pending.} Planned ablation sweep ($\sim\!200$M tokens each):
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llll}
+\toprule
+\textbf{Ablation} & \textbf{Config} & \textbf{Held-out loss} & \textbf{$\Delta$ vs base} \\
+\midrule
+Base ($K = 4$, $r = 128$, hybrid-MHA) & --- & \TBD & 0 \\
+$K = 2$                & half experts        & \TBD & \TBD \\
+$K = 8$                & double experts      & \TBD & \TBD \\
+$r = 64$               & narrower bilinear   & \TBD & \TBD \\
+$r = 256$              & wider bilinear      & \TBD & \TBD \\
+No hybrid MHA          & pure MoBE attention & \TBD & \TBD \\
+Q+K routing (naive $O(L^2)$) & short-$L$ equivalence check & \TBD & \TBD \\
+\bottomrule
+\end{tabular}
+\caption{Ablation plan. Rows will be populated from the D4 ablation sweep.}
+\label{tab:ablations}
+\end{table}
+
+% -------------- Qualitative --------------
+\section{Qualitative Samples}
+\label{sec:samples}
+
+\wip{Pending.} Prompt--generation pairs from the final checkpoint: LaTeX
+completions, derivative/integral rules, short problem sketches.
+
+% -------------- Discussion --------------
+\section{Discussion}
+
+\paragraph{Positioning.}
+Kazdov-$\alpha$ is a demonstration of the cumsum-factorised MoBE-BCN
+kernel at LM scale, not a production language model. At 98M parameters
+and 5B tokens it is sub-Chinchilla-optimal by about a factor of 10 on
+breadth; its purpose is architectural validation, not capability claims.
+Downstream benchmarks (GSM8K, MATH) are not meaningfully evaluable at
+this parameter count.
+
+\paragraph{Relation to linear attention.}
+The cumsum trick is the standard linearisation technique for any
+attention whose kernel is separable across $Q$ and
+$K$~\citep{katharopoulos2020transformers}. Our contribution is identifying
+that (a) bilinear-composition attention is exactly such a kernel, and
+(b) MoBE-BCN preserves separability precisely when routing is query-side,
+which is the MoE convention anyway. The combination yields an $O(L)$
+bilinear-composition attention with learned expert specialisation.
+
+\paragraph{Limitations.}
+\begin{itemize}
+\item Short context (256 tokens in the alpha; scaling to 2048 is
+    straightforward with the $O(L)$ kernel but not evaluated here).
+\item Single-author, single-GPU training---reproducibility relies on the
+    open release rather than independent confirmation.
+\item No SFT or instruction-tuning; the model is base-LM only.
+\item GSM8K/MATH benchmarks not meaningful at 98M; a 1B-scale follow-up
+    is the correct target for capability claims.
+\end{itemize}
+
+% -------------- Acknowledgements --------------
+\paragraph{Acknowledgments.}
+This work was conducted independently without institutional support.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
