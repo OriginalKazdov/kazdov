@@ -9,10 +9,11 @@ bake algebraic composition into the architecture itself, rather than
 relying on a Transformer to approximate it.
 
 <p>
+  <a href="https://doi.org/10.5281/zenodo.19686231"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.19686231.svg"></a>
   <a href="LICENSE"><img alt="License: MIT (code)" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <a href="LICENSE-PAPERS"><img alt="License: CC BY-NC 4.0 (papers)" src="https://img.shields.io/badge/papers-CC%20BY--NC%204.0-lightgrey.svg"></a>
-  <a href="papers/01-mobe-bcn.md"><img alt="Paper 1" src="https://img.shields.io/badge/paper%201-MoBE--BCN-green.svg"></a>
-  <a href="papers/02-kazdov-lm.md"><img alt="Paper 2" src="https://img.shields.io/badge/paper%202-Kazdov--LM%20%28WIP%29-orange.svg"></a>
+  <a href="papers/01-mobe-bcn.pdf"><img alt="Paper 1 PDF" src="https://img.shields.io/badge/paper%201-MoBE--BCN-green.svg"></a>
+  <a href="papers/02-kazdov-lm.pdf"><img alt="Paper 2 PDF" src="https://img.shields.io/badge/paper%202-Kazdov--LM%20%28WIP%29-orange.svg"></a>
   <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-blue.svg">
   <img alt="PyTorch 2.3+" src="https://img.shields.io/badge/pytorch-2.3%2B-ee4c2c.svg">
 </p>
@@ -202,12 +203,14 @@ kazdov/
 
 ```bibtex
 @article{dovzak2026mobebcn,
-  title   = {MoBE-BCN: Mixture of Bilinear Experts for
-             Sample-Efficient Algebraic Composition Learning},
-  author  = {Dovzak, Juan Cruz},
-  year    = {2026},
-  month   = {April},
-  note    = {Preprint. https://github.com/OriginalKazdov/kazdov},
+  title     = {MoBE-BCN: Mixture of Bilinear Experts for
+               Sample-Efficient Algebraic Composition Learning},
+  author    = {Dovzak, Juan Cruz},
+  year      = {2026},
+  month     = {April},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.19686231},
+  url       = {https://doi.org/10.5281/zenodo.19686231},
 }
 ```
 
