@@ -74,22 +74,21 @@ via Cumsum Factorization}}
 \texttt{juandovzak@gmail.com}. Code and data:
 \url{https://github.com/OriginalKazdov/kazdov}}}
 
-\date{April 2026 --- \wip{Work in Progress}}
+\date{April 2026}
 
 \begin{document}
 
 \maketitle
 
-% -------------- WIP banner --------------
+% -------------- Status banner --------------
 \begin{center}
 \fbox{\parbox{0.93\textwidth}{\small\centering
-\textbf{\color{wipcolor}Work-in-progress manuscript.} The companion paper
-\citep{dovzak2026mobebcn} contains the complete MoBE-BCN architecture and
-sample-efficiency results on algebraic composition tasks. Sections 1--3
-of this manuscript (architecture, cumsum derivation, vectorized kernel)
-are complete; Sections 4--7 (training results, ablations, qualitative
-samples) will be finalised once the 5B-token alpha run completes.
-Last updated: April 2026.
+\textbf{Pre-print v0.2.0 --- 22 April 2026.}  Sections 1--5 are
+complete with final results from the 5B-token Kazdov-$\alpha$ run.
+Section~\ref{sec:ablations} (architectural ablations, in particular a
+matched-parameter Transformer baseline trained on the same data) is
+still outstanding and will appear in v0.3.  See the companion paper
+\citep{dovzak2026mobebcn} for the algebraic-composition foundations.
 }}
 \end{center}
 
@@ -107,9 +106,14 @@ expert specialisation. Combined with a vectorized $K$-expert kernel, this
 yields a $\mathbf{259\times}$ throughput improvement on a single
 RTX~4090, enabling overnight training of a 98M-parameter math-specialised
 LM (Kazdov-$\alpha$) on a 5.95B-token mathematics corpus.
-On held-out math loss, Kazdov-$\alpha$ \TBD{} a matched-tokenizer
-GPT-2~124M baseline. We release the model, code, and training recipe
-under MIT.
+On held-out math loss, Kazdov-$\alpha$ achieves a mean cross-entropy of
+\textbf{2.205} versus \textbf{3.12} for a matched-tokenizer GPT-2~124M
+baseline---a $\mathbf{2.49\times}$ perplexity reduction at $\mathbf{21\%}$
+\emph{fewer} parameters, with all 5/5 held-out math datasets won.
+Routing-balance analysis across four training snapshots shows the
+DeepSeek-V3 bias-balanced gate progressively reverses early MoBE
+expert collapse as the WSD scheduler enters its decay phase.  We release
+the model, code, full training logs and routing diagnostics under MIT.
 \end{abstract}
 
 % -------------- Introduction --------------
@@ -303,8 +307,6 @@ unlocks the final order-of-magnitude gain.}
 \section{Kazdov-$\alpha$ Training Setup}
 \label{sec:setup}
 
-\wip{Partial --- final numbers pending the complete training run.}
-
 \paragraph{Model.}
 KazdovLM 98M parameters --- $d = 512$, $L = 256$, $n_{\mathrm{layers}} = 12$,
 $n_{\mathrm{heads}} = 8$, $r = 128$, $K = 4$, $\text{mlp\_dim} = 2048$,
@@ -341,7 +343,9 @@ Last 0.5\% of each data shard, deterministic eval.
 \section{Results}
 \label{sec:results}
 
-\wip{This section will be populated once training completes.}
+The 5B-token Kazdov-$\alpha$ run completed in 21 hours wall time on
+the single RTX~4090 ($\sim$65K tok/s sustained, no NaN, no loss
+spikes, gradient norm stable in $[0.65, 1.4]$ throughout).
 
 \subsection{Held-out math LM loss}
 
@@ -353,58 +357,174 @@ Last 0.5\% of each data shard, deterministic eval.
 \toprule
 \textbf{Model} & \textbf{Params} & \textbf{Tokenizer} & \textbf{OWM} & \textbf{proof} & \textbf{MathPile} & \textbf{AutoMath} & \textbf{Numina} & \textbf{MEAN} \\
 \midrule
-GPT-2 124M (baseline) & 124M & GPT-2 & 3.57 & 3.12 & 3.04 & 3.28 & 2.58 & \textbf{3.12} \\
-Kazdov-$\alpha$       & 98M  & GPT-2 & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+GPT-2 124M (baseline) & 124M & GPT-2 & 3.57 & 3.12 & 3.04 & 3.28 & 2.58 & 3.12 \\
+\textbf{Kazdov-$\alpha$} & \textbf{98M} & GPT-2 & \textbf{3.40} & \textbf{1.83} & \textbf{1.87} & \textbf{2.65} & \textbf{1.27} & \textbf{2.21} \\
+\midrule
+$\Delta$ (nats)          & --- & --- & $-0.17$ & $-1.29$ & $-1.17$ & $-0.63$ & $-1.31$ & $\mathbf{-0.91}$ \\
+PPL ratio (Kazdov$^{-1}$) & --- & --- & $1.18\times$ & $\mathbf{3.62\times}$ & $\mathbf{3.21\times}$ & $1.88\times$ & $\mathbf{3.72\times}$ & $\mathbf{2.49\times}$ \\
 \bottomrule
 \end{tabular}
-\caption{\wip{Pending.} Held-out LM loss on 81{,}920 tokens per dataset
-split (deterministic offsets). Lower is better. OWM: OpenWebMath;
-proof: proof-pile v1.}
+\caption{Final held-out LM loss on 81{,}920 tokens per dataset (10
+batches $\times$ 32 batch $\times$ 256 sequence length, deterministic
+linspace offsets in the last 0.5\% of each shard).  Lower is better.
+\textbf{Kazdov-$\alpha$ wins on 5/5 datasets at 21\% fewer parameters
+than the baseline.}  OWM: OpenWebMath; proof: proof-pile v1.}
 \label{tab:heldout}
 \end{table}
 
-\subsection{Loss curves}
+The architecture's win is largest on the most symbolic / formal
+datasets (proof-pile, NuminaMath, MathPile: 2.6--3.7$\times$ better
+PPL) and smallest on OpenWebMath (1.18$\times$), which is essentially
+math-flavoured natural-language web text and so is the regime where a
+general-purpose Transformer baseline retains an inherent advantage.
+Notably, Kazdov-$\alpha$ initially \emph{lost} on OpenWebMath through
+the first $\sim$4B tokens of training, only closing the gap during
+the WSD decay phase as the model learnt finer natural-language
+patterns at lower learning rates.
 
-\wip{Figure pending}---training-loss and held-out-loss curves vs.\
-tokens seen.
+\subsection{Training loss curves}
+\label{sec:curves}
 
-\subsection{Routing diagnostics}
+Figure~\ref{fig:training_curves} shows the training-loss EMA and the
+per-dataset held-out evaluations across the full 5B-token run.
 
-\wip{Figure pending}---per-layer expert usage entropy over training,
-expert-specialisation heatmap.
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/training_curves.pdf}
+\caption{(Top) Training cross-entropy on randomly-sampled batches
+(grey raw, blue exponential moving average) vs.\ tokens seen, with
+the GPT-2-124M baseline mean at 3.12 marked.  (Bottom) Held-out LM
+loss per dataset across the run; dashed lines are the GPT-2-124M
+per-dataset baselines for reference.  All five datasets cross under
+their respective baselines by the end of training.}
+\label{fig:training_curves}
+\end{figure}
 
-% -------------- Ablations --------------
-\section{Ablations}
-\label{sec:ablations}
+\subsection{Routing diagnostics: emergent specialisation, then
+recovery from collapse}
+\label{sec:routing}
 
-\wip{Pending.} Planned ablation sweep ($\sim\!200$M tokens each):
+We took routing snapshots at four points in training (344M, 1B, 4B
+and 5B tokens) by running 30 forward passes on real held-out batches
+in training mode and reading the accumulated per-expert usage from
+each block's \texttt{usage\_running} buffer.  Figure~\ref{fig:routing}
+shows the four 12-block~$\times$~4-expert heatmaps.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figures/routing_evolution.pdf}
+\caption{Per-block MoBE expert usage at four training checkpoints.
+Each panel is a 12-block (rows) $\times$ 4-expert (columns) heatmap of
+mean routing weight, computed over 30 batches of held-out math text.
+Above each panel: average routing entropy as a fraction of $\ln K
+\approx 1.386$ (higher = more uniform), and average collapse score
+($1 -$ entropy ratio).  Block~4 spends most of training $>98\%$ on
+expert~1 (a near-collapse), then partially recovers to 80.5\% as the
+WSD scheduler's decay phase begins to allow the bias-balanced gate to
+catch up with the entrenched expert.}
+\label{fig:routing}
+\end{figure}
+
+The aggregate trend across the run:
 
 \begin{table}[h]
 \centering
 \small
-\begin{tabular}{llll}
+\begin{tabular}{lrrrr}
 \toprule
-\textbf{Ablation} & \textbf{Config} & \textbf{Held-out loss} & \textbf{$\Delta$ vs base} \\
+\textbf{snapshot} & 344M tok & 1B tok & 4B tok & \textbf{5B (final)} \\
 \midrule
-Base ($K = 4$, $r = 128$, hybrid-MHA) & --- & \TBD & 0 \\
-$K = 2$                & half experts        & \TBD & \TBD \\
-$K = 8$                & double experts      & \TBD & \TBD \\
-$r = 64$               & narrower bilinear   & \TBD & \TBD \\
-$r = 256$              & wider bilinear      & \TBD & \TBD \\
-No hybrid MHA          & pure MoBE attention & \TBD & \TBD \\
-Q+K routing (naive $O(L^2)$) & short-$L$ equivalence check & \TBD & \TBD \\
+avg entropy ($/\ln K$)          & 0.675 & 0.721 & 0.709 & \textbf{0.858} \\
+avg collapse score              & 0.32  & 0.28  & 0.29  & \textbf{0.14}  \\
+blocks with $>95\%$ on one expert & 1     & 1     & 1     & \textbf{0}     \\
+blocks with $>70\%$ on one expert & 4     & 3     & 4     & \textbf{2}     \\
 \bottomrule
 \end{tabular}
-\caption{Ablation plan. Rows will be populated from the D4 ablation sweep.}
-\label{tab:ablations}
+\caption{Routing balance evolves through training.  After an initial
+specialisation phase that produces several partially-collapsed blocks,
+the WSD scheduler's decay phase coincides with substantial routing
+re-balancing across most blocks.}
+\label{tab:routing}
 \end{table}
+
+\paragraph{Mechanism (hypothesis).}
+The DeepSeek-V3 bias-balanced
+gate~\citep{liu2024deepseekv3} adds a per-expert bias $b_k$ to the
+router logits and updates it as $b_k \leftarrow b_k + \eta \cdot
+(1/K - p_k)$ every 100 steps, where $p_k$ is the running-average
+routing weight on expert $k$ and $\eta = 10^{-3}$.  At peak learning
+rate (5e-4) the gradient updates that reinforce the
+already-dominant expert's specialisation outpace this bias correction;
+in the WSD decay phase the learning rate falls 10$\times$ but $\eta$
+stays constant, so the cumulative bias finally tips the routing
+toward the under-used experts and previously-dead experts begin to
+receive enough gradient signal to become useful again.  The single
+remaining partial collapse (block~4 at 80.5\%) is the deepest basin
+that did not fully invert in time.
+
+% -------------- Ablations --------------
+\section{Ablations and the missing baseline}
+\label{sec:ablations}
+
+The headline comparison in Section~\ref{sec:results} is against
+GPT-2-124M, a general-purpose Transformer trained on WebText.  This
+controls for tokenizer, eval protocol and held-out distribution but
+\emph{not} for training data: the win combines an architectural
+contribution (MoBE-BCN) with a data contribution (math specialisation).
+The proper architectural ablation is a matched-parameter Transformer
+trained on \emph{the same} 5B-token math corpus with the same
+hyper-parameters and seed.  This is straightforward (essentially the
+same training script with \texttt{use\_mobe=False} and a slightly
+re-shaped Transformer config to match $\sim$95M parameters) and is in
+the v0.3 plan; we report it openly here so the present claim is read
+correctly: ``a 98M MoBE-BCN model, math-specialised, beats a
+general-purpose Transformer baseline 27\% larger by $2.49\times$ in
+held-out math perplexity.''  The cleaner ``MoBE-BCN beats a
+matched-data Transformer'' claim is one $\sim$24-hour run away and
+will replace this section in v0.3.
+
+The other planned ablations ($K \in \{2, 8\}$, $r \in \{64, 256\}$,
+no hybrid-MHA, $Q$+$K$ routing for short-$L$ equivalence
+verification) are deferred to v0.3 / Kazdov-1B work.
 
 % -------------- Qualitative --------------
 \section{Qualitative Samples}
 \label{sec:samples}
 
-\wip{Pending.} Prompt--generation pairs from the final checkpoint: LaTeX
-completions, derivative/integral rules, short problem sketches.
+We sampled the final checkpoint on a small set of math-flavoured
+prompts (CPU inference, temperature 0.7, top-$k$ 40, max 30--50 new
+tokens).  Two patterns appear consistently.
+
+\paragraph{LaTeX-pattern continuations are coherent.}
+Given an integral set up to be evaluated, the model recognises the
+antiderivative pattern and produces structurally-correct LaTeX:
+\begin{quote}\itshape
+\textbf{prompt:}~~\texttt{\textbackslash int\_0\^{}1 x\^{}2 dx =}\\
+\textbf{generated:}~~\texttt{\textbackslash int\_0\^{}1
+\textbackslash frac\{x\^{}3\}\{3\} dx = \textbackslash int\_0\^{}1
+\textbackslash frac\{1\}\{3\}\ldots}
+\end{quote}
+Symbol names ($S_3$, Hermitian, prime, identity element, etc.) are
+deployed in the right positions; statements of the right
+\emph{shape} of theorems and proofs are produced.
+
+\paragraph{Arithmetic and multi-step reasoning are systematically wrong.}
+The base 98M LM has no instruction-following and no reliable
+arithmetic.  Examples:
+\begin{quote}\itshape
+\textbf{prompt:}~~\texttt{The square root of 144 is}\\
+\textbf{generated:}~~\texttt{6, which is 3 \ldots}\\[2pt]
+\textbf{prompt:}~~\texttt{The derivative of x\^{}2 is}\\
+\textbf{generated:}~~\texttt{1 and the derivative of x is 0\ldots}
+\end{quote}
+This is exactly the expected base-LM behaviour at 98M params: the
+model has learnt the \emph{distribution} of math text but not the
+\emph{semantics} of math operations.  Closing this gap requires
+either (i) instruction fine-tuning on chain-of-thought traces, or
+(ii) tool-use integration with an external symbolic engine (SymPy,
+calculator).  Both are tractable on the same RTX 4090 in $\sim$12
+additional hours and are deferred to follow-up work; the present
+paper focuses on the architectural contribution.
 
 % -------------- Discussion --------------
 \section{Discussion}
@@ -435,6 +555,15 @@ bilinear-composition attention with learned expert specialisation.
 \item No SFT or instruction-tuning; the model is base-LM only.
 \item GSM8K/MATH benchmarks not meaningful at 98M; a 1B-scale follow-up
     is the correct target for capability claims.
+\item The headline comparison is against GPT-2-124M (general-trained).
+    A matched-data Transformer baseline is the obvious next experiment
+    and is the gating item for v0.3 (Section~\ref{sec:ablations}).
+\item Single-seed training run---multi-seed validation deferred to
+    Kazdov-1B due to compute cost.
+\item One block (block~4) retains $\sim\!80\%$ routing concentration
+    on a single expert at the end of training.  Stronger
+    bias-balancing or an auxiliary load-balancing loss would likely
+    eliminate this; left as v2 work.
 \end{itemize}
 
 % -------------- Acknowledgements --------------
