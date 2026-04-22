@@ -4,7 +4,7 @@
 **Affiliation:** None — solo researcher, Argentina
 **Contact:** juandovzak@gmail.com
 **Date:** April 2026
-**License:** CC BY-NC 4.0 (text) · MIT (reference implementation) · Patent rights retained
+**License:** CC BY-NC 4.0 (text) · MIT (reference implementation)
 **Code:** https://github.com/OriginalKazdov/kazdov
 
 ---

@@ -238,10 +238,6 @@ A machine-readable `CITATION.cff` is provided at the repository root.
 - **Papers** (`papers/`) — Creative Commons Attribution-NonCommercial 4.0
   (see `LICENSE-PAPERS`). Share and adapt with attribution; no
   commercial use without explicit written permission.
-- **Patent notice** — the MoBE-BCN architecture, cumsum-factorized
-  bilinear attention, and related methods may be subject to patent
-  protection. The CC and MIT licenses above do **not** grant any patent
-  rights; commercial applications should contact the author.
 
 ---
 

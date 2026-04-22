@@ -3,7 +3,7 @@
 **Author:** Juan Cruz Dovzak (independent researcher)
 **Contact:** juandovzak@gmail.com
 **Status:** In preparation — experiments ongoing
-**License:** CC BY-NC 4.0 (text) · MIT (reference implementation) · Patent rights retained
+**License:** CC BY-NC 4.0 (text) · MIT (reference implementation)
 **Code:** https://github.com/OriginalKazdov/kazdov
 
 > **This paper is a work-in-progress placeholder.** The algebraic-composition
